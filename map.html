@@ -1,0 +1,228 @@
+<!-- External Dependencies -->
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.9.0/mapbox-gl.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+    :root {
+        --safari-highlight: #FFD700;
+        --safari-dark: #1e293b;
+        --safari-text: #475569;
+        --safari-glass: rgba(253, 251, 247, 0.85);
+        --safari-glass-border: rgba(255, 215, 0, 0.3);
+    }
+
+    .wp-safari-itinerary-container {
+        position: relative; 
+        width: 100%; 
+        height: 700px;
+        max-height: 85vh;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        background: #fdfbf7;
+        overflow: hidden; 
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    }
+
+    #safari-map {
+        position: absolute;
+        top: 0; bottom: 0; left: 0; right: 0;
+        width: 100%; height: 100%;
+        z-index: 1;
+    }
+
+    .itinerary-sidebar {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        width: 320px;
+        max-height: calc(100% - 40px);
+        background: var(--safari-glass);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--safari-glass-border);
+        border-radius: 16px;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+
+    .itinerary-header {
+        padding: 20px;
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .itinerary-header h3 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--safari-dark);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .itinerary-list {
+        padding: 16px 16px 30px 16px; 
+        overflow-y: auto;
+        flex-grow: 1;
+    }
+
+    .itinerary-card {
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid transparent;
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+
+    .itinerary-card:hover, .itinerary-card.active {
+        background: #fff;
+        border-color: var(--safari-highlight);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.15);
+    }
+
+    .itinerary-day {
+        font-size: 11px;
+        font-weight: 700;
+        color: #b49700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 4px;
+    }
+
+    .itinerary-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--safari-dark);
+        margin-bottom: 4px;
+        line-height: 1.3;
+    }
+
+    .itinerary-lodge {
+        font-size: 12px;
+        color: var(--safari-text);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .custom-marker {
+        cursor: pointer;
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .custom-marker:hover {
+        transform: scale(1.15);
+        z-index: 999 !important;
+    }
+
+    .mapboxgl-popup-content {
+        border-radius: 12px !important;
+        padding: 16px !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;
+        border: 1px solid var(--safari-glass-border);
+        min-width: 200px;
+    }
+
+    @media (max-width: 768px) {
+        .itinerary-sidebar {
+            top: auto;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            border-radius: 20px 20px 0 0;
+            max-height: 50%; 
+            padding-bottom: env(safe-area-inset-bottom, 10px);
+            border-bottom: none;
+            border-left: none;
+            border-right: none;
+        }
+    }
+</style>
+
+<div class="wp-safari-itinerary-container">
+    <div id="safari-map"></div>
+    <div class="itinerary-sidebar">
+        <div class="itinerary-header">
+            <h3>Plan Podróży Safari</h3>
+        </div>
+        <div class="itinerary-list" id="itinerary-list"></div>
+    </div>
+</div>
+
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.9.0/mapbox-gl.js"></script>
+<script>
+    (function() {
+        mapboxgl.accessToken = '';
+
+        const itineraryData = [
+            { id: 'start', dayString: 'Start', title: 'Przylot', lodge: 'Lotnisko Wilson, Nairobi', coords: [36.8148, -1.3217] },
+            { id: 'day1', dayString: 'Dzień 1', title: 'Region Samburu', lodge: 'Saruni Samburu', coords: [37.5311, 0.7053] },
+            { id: 'day2', dayString: 'Dzień 2', title: 'Rezerwat Samburu', lodge: 'Rezerwat Narodowy Samburu', coords: [37.5400, 0.6100] },
+            { id: 'day3', dayString: 'Dzień 3', title: 'Obszar Chroniony Kalama', lodge: 'Kalama Community Conservancy', coords: [37.5800, 0.6500] },
+            { id: 'day4', dayString: 'Dzień 4', title: 'Region Laikipia', lodge: 'Laikipia Wilderness Camp', coords: [36.9800, 0.0500] },
+            { id: 'day5', dayString: 'Dzień 5', title: 'Północna Laikipia', lodge: 'Ol Lentille', coords: [37.1000, 0.3500] },
+            { id: 'day6', dayString: 'Dzień 6', title: 'Obszar Chroniony Lewa', lodge: 'Lewa Wildlife Conservancy', coords: [37.4500, 0.2300] },
+            { id: 'day7', dayString: 'Dzień 7', title: 'Wylot', lodge: 'Międzynarodowe Lotnisko Jomo Kenyatta', coords: [36.9272, -1.3192] }
+        ];
+
+        const map = new mapboxgl.Map({
+            container: 'safari-map',
+            style: 'mapbox://styles/mapbox/standard-satellite',
+            center: [37.2, 0.3], 
+            zoom: 7.5,
+            pitch: 60,
+            cooperativeGestures: true
+        });
+
+        function createPinElement() {
+            const el = document.createElement('div');
+            el.className = 'custom-marker';
+            el.innerHTML = `<svg width="32" height="42" viewBox="0 0 27 41" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); display: block;"><path d="M13.5 0C6.04 0 0 6.04 0 13.5C0 23.6 13.5 41 13.5 41C13.5 41 27 23.6 27 13.5C27 6.04 20.96 0 13.5 0ZM13.5 18.5C10.74 18.5 8.5 16.26 8.5 13.5C8.5 10.74 10.74 8.5 13.5 8.5C16.26 8.5 18.5 10.74 18.5 13.5C18.5 16.26 16.26 18.5 13.5 18.5Z" fill="#FFD700"/></svg>`;
+            return el;
+        }
+
+        const listContainer = document.getElementById('itinerary-list');
+        const routeCoords = itineraryData.map(d => d.coords);
+
+        itineraryData.forEach((stop) => {
+            const marker = new mapboxgl.Marker({ element: createPinElement(), anchor: 'bottom' })
+                .setLngLat(stop.coords)
+                .setPopup(new mapboxgl.Popup({ offset: 35, closeButton: false }).setHTML(`<div class="itinerary-day">${stop.dayString}</div><div class="itinerary-title">${stop.title}</div><div class="itinerary-lodge">${stop.lodge}</div>`))
+                .addTo(map);
+
+            const card = document.createElement('div');
+            card.className = 'itinerary-card';
+            card.innerHTML = `<div class="itinerary-day">${stop.dayString}</div><div class="itinerary-title">${stop.title}</div><div class="itinerary-lodge"><span>${stop.lodge}</span></div>`;
+            card.addEventListener('click', () => {
+                document.querySelectorAll('.itinerary-card').forEach(c => c.classList.remove('active'));
+                card.classList.add('active');
+                map.flyTo({ center: stop.coords, zoom: 12, pitch: 65, speed: 1.2 });
+                marker.togglePopup();
+            });
+            listContainer.appendChild(card);
+        });
+
+        map.on('load', async () => {
+            map.addSource('route', { 'type': 'geojson', 'data': { 'type': 'Feature', 'geometry': { 'type': 'LineString', 'coordinates': routeCoords } } });
+            map.addLayer({ 'id': 'route-line-dashed', 'type': 'line', 'source': 'route', 'paint': { 'line-color': '#FFD700', 'line-width': 3, 'line-dasharray': [0, 4, 3] } });
+
+            const dashArraySequence = [[0, 4, 3], [0.5, 4, 2.5], [1, 4, 2], [1.5, 4, 1.5], [2, 4, 1], [2.5, 4, 0.5], [3, 4, 0]];
+            let step = 0;
+            function animateDashArray(timestamp) {
+                const newStep = parseInt((timestamp / 50) % dashArraySequence.length);
+                if (newStep !== step) {
+                    map.setPaintProperty('route-line-dashed', 'line-dasharray', dashArraySequence[step]);
+                    step = newStep;
+                }
+                requestAnimationFrame(animateDashArray);
+            }
+            animateDashArray(0);
+        });
+    })();
+</script>
